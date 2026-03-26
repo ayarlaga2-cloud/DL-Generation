@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Dialogue System</title>
+    <style>
+        /* ═══════════════════════════════════════════════════════════
+           TOKENS  —  White + Forest Green  |  Times New Roman
+        ═══════════════════════════════════════════════════════════ */
+        :root {
+            --g900:  #14532d;
+            --g800:  #166534;
+            --g700:  #15803d;
+            --g600:  #16a34a;
+            --g400:  #4ade80;
+            --g100:  #dcfce7;
+            --g50:   #f0fdf4;
+
+            --white: #ffffff;
+            --bg:    #f7faf8;
+
+            --ink:   #111827;
+            --ink2:  #374151;
+            --muted: #6b7280;
+            --faint: #9ca3af;
+            --bdr:   #d1fae5;
+            --bdr2:  #86efac;
+
+            --sh-sm: 0 1px 4px rgba(0,0,0,0.06);
+            --sh-md: 0 4px 18px rgba(0,0,0,0.08);
+
+            --r-sm: 6px;
+            --r-md: 10px;
+            --r-lg: 14px;
+            --r-xl: 18px;
+
+            --err:     #dc2626;
+            --err-bg:  #fef2f2;
+            --err-bdr: #fca5a5;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background: var(--bg);
+            color: var(--ink);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           TOP NAV
+        ═══════════════════════════════════════════════════════════ */
+        .topbar {
+            background: var(--g900);
+            height: 56px;
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.20);
+        }
+        .topbar-brand {
+            font-size: 1.07rem;
+            font-weight: bold;
+            color: #ffffff;
+            letter-spacing: 0.02em;
+        }
+        .topbar-brand em {
+            font-style: italic;
+            font-weight: normal;
+            font-size: 0.88rem;
+            color: rgba(255,255,255,0.55);
+            margin-left: 10px;
+        }
+        .topbar-right {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.45);
+            font-style: italic;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           PAGE
+        ═══════════════════════════════════════════════════════════ */
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 36px 28px 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        .page-head {
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--bdr);
+        }
+        .page-head h1 {
+            font-size: 1.55rem;
+            font-weight: bold;
+            color: var(--g900);
+            margin-bottom: 4px;
+        }
+        .page-head p {
+            font-size: 0.90rem;
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           WORKFLOW STRIP
+        ═══════════════════════════════════════════════════════════ */
+        .workflow {
+            background: var(--white);
+            border: 1px solid var(--bdr);
+            border-radius: var(--r-lg);
+            box-shadow: var(--sh-sm);
+            padding: 0 24px;
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            height: 50px;
+        }
+        .wf-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+            font-size: 0.84rem;
+            color: var(--faint);
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: color 0.2s, border-color 0.2s;
+            position: relative;
+        }
+        .wf-step + .wf-step::before {
+            content: '';
+            position: absolute; left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 1px; height: 16px;
+            background: var(--bdr);
+        }
+        .wf-step.active {
+            color: var(--g700);
+            border-bottom-color: var(--g700);
+            font-weight: bold;
+        }
+        .wf-step.done { color: var(--muted); }
+        .wf-dot {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.67rem;
+            font-weight: bold;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .wf-step.active .wf-dot { background: var(--g700); border-color: var(--g700); color: #fff; }
+        .wf-step.done  .wf-dot  { background: var(--g900); border-color: var(--g900); color: #fff; }
+
+        /* ═══════════════════════════════════════════════════════════
+           GRID
+        ═══════════════════════════════════════════════════════════ */
+        .workspace {
+            display: grid;
+            grid-template-columns: 355px 1fr;
+            gap: 22px;
+            align-items: start;
+        }
+        @media (max-width: 840px) { .workspace { grid-template-columns: 1fr; } }
+
+        /* ═══════════════════════════════════════════════════════════
+           CARD
+        ═══════════════════════════════════════════════════════════ */
+        .card {
+            background: var(--white);
+            border: 1px solid var(--bdr);
+            border-radius: var(--r-lg);
+            box-shadow: var(--sh-md);
+            overflow: hidden;
+        }
+        .card-head {
+            background: var(--g50);
+            border-bottom: 1px solid var(--bdr);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-head h2 {
+            font-size: 0.96rem;
+            font-weight: bold;
+            color: var(--g900);
+        }
+        .card-tag {
+            font-size: 0.71rem;
+            font-weight: bold;
+            letter-spacing: 0.07em;
+            color: var(--g700);
+            background: var(--g100);
+            border: 1px solid var(--bdr2);
+            border-radius: 999px;
+            padding: 2px 10px;
+        }
+        .card-body { padding: 20px; }
+
+        /* ═══════════════════════════════════════════════════════════
+           FORM
+        ═══════════════════════════════════════════════════════════ */
+        .field { margin-bottom: 14px; }
+        .field:last-of-type { margin-bottom: 0; }
+
+        .lbl {
+            display: block;
+            font-size: 0.76rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--ink2);
+            margin-bottom: 6px;
+        }
+
+        select, textarea, input[type="text"] {
+            width: 100%;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 0.94rem;
+            color: var(--ink);
+            background: var(--white);
+            border: 1.5px solid var(--bdr);
+            border-radius: var(--r-sm);
+            padding: 9px 12px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        select:hover, textarea:hover, input[type="text"]:hover { border-color: var(--bdr2); }
+        select:focus, textarea:focus, input[type="text"]:focus {
+            border-color: var(--g700);
+            box-shadow: 0 0 0 3px rgba(21,128,61,0.12);
+        }
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' fill='%2315803d'%3E%3Cpath d='M0 0l5.5 7L11 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+        select option { background: #fff; }
+        textarea {
+            resize: vertical;
+            min-height: 112px;
+            line-height: 1.65;
+        }
+        textarea[readonly] { background: var(--g50); color: var(--ink2); cursor: default; }
+        ::placeholder { color: #b0bec5; font-style: italic; }
+        .field-note { margin-top: 5px; font-size: 0.77rem; color: var(--muted); font-style: italic; }
+
+        hr.div { border: none; border-top: 1px solid var(--bdr); margin: 16px 0; }
+
+        /* ═══════════════════════════════════════════════════════════
+           BUTTONS
+        ═══════════════════════════════════════════════════════════ */
+        .btn {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 0.87rem;
+            font-weight: bold;
+            padding: 9px 20px;
+            border-radius: var(--r-sm);
+            border: none;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            transition: background 0.13s, transform 0.08s, box-shadow 0.13s;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover:not(:disabled)  { transform: translateY(-1px); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn:disabled { opacity: 0.40; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--g800);
+            color: #fff;
+            box-shadow: 0 1px 4px rgba(22,101,52,0.25);
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--g700); box-shadow: 0 3px 12px rgba(22,163,74,0.28); }
+
+        .btn-outline {
+            background: var(--white);
+            color: var(--g800);
+            border: 1.5px solid var(--g800);
+        }
+        .btn-outline:hover:not(:disabled) { background: var(--g50); }
+
+        .btn-subtle {
+            background: var(--g50);
+            color: var(--muted);
+            border: 1px solid var(--bdr);
+        }
+        .btn-subtle:hover:not(:disabled) { background: var(--g100); color: var(--g800); border-color: var(--bdr2); }
+
+        .btn-sm  { padding: 7px 14px; font-size: 0.82rem; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+        /* ═══════════════════════════════════════════════════════════
+           CHAT
+        ═══════════════════════════════════════════════════════════ */
+        .chat-messages {
+            min-height: 280px;
+            max-height: 450px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 4px 0 14px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--bdr2) transparent;
+        }
+        .chat-messages::-webkit-scrollbar       { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track  { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb  { background: var(--bdr2); border-radius: 4px; }
+
+        .msg {
+            max-width: 80%;
+            padding: 11px 15px;
+            border-radius: var(--r-md);
+            font-size: 0.94rem;
+            line-height: 1.65;
+            animation: rise 0.18s ease;
+        }
+        .msg-user {
+            align-self: flex-end;
+            background: var(--g800);
+            color: #fff;
+            border-bottom-right-radius: 3px;
+        }
+        .msg-bot {
+            align-self: flex-start;
+            background: var(--g50);
+            border: 1.5px solid var(--bdr);
+            color: var(--ink);
+            border-bottom-left-radius: 3px;
+        }
+
+        /* ── LOADING BUBBLE ─────────────────────────────────────── */
+        .msg-loading {
+            align-self: flex-start;
+            background: var(--white);
+            border: 1.5px solid var(--bdr);
+            border-bottom-left-radius: 3px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        /* Spinning ring */
+        .spinner {
+            width: 20px; height: 20px;
+            border: 2.5px solid var(--bdr);
+            border-top-color: var(--g700);
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            font-size: 0.87rem;
+            color: var(--muted);
+            font-style: italic;
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 0.5; }
+            50%      { opacity: 1.0; }
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(5px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Eval loading indicator (inside eval card) */
+        .eval-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        .eval-loading .spinner { width: 18px; height: 18px; border-width: 2px; }
+        .eval-loading span { font-size: 0.88rem; color: var(--muted); font-style: italic; }
+
+        .chat-input-bar {
+            display: flex;
+            gap: 8px;
+            padding-top: 14px;
+            border-top: 1px solid var(--bdr);
+            margin-top: 4px;
+        }
+        .chat-input-bar input { flex: 1; font-size: 0.94rem; padding: 10px 14px; }
+
+        /* ═══════════════════════════════════════════════════════════
+           EVAL CARD
+        ═══════════════════════════════════════════════════════════ */
+        .eval-card {
+            margin-top: 10px;
+            padding: 14px 16px;
+            background: var(--white);
+            border: 1px solid var(--bdr);
+            border-left: 3px solid var(--g700);
+            border-radius: var(--r-md);
+            animation: rise 0.20s ease;
+        }
+        .eval-note {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-style: italic;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        /* Metrics */
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+        @media (max-width: 600px) { .metrics { grid-template-columns: repeat(2,1fr); } }
+
+        .m-card {
+            background: var(--g50);
+            border: 1px solid var(--bdr);
+            border-radius: var(--r-sm);
+            padding: 12px 8px;
+            text-align: center;
+        }
+        .m-card.hi { background: var(--g100); border-color: var(--bdr2); }
+        .m-lbl {
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 5px;
+        }
+        .m-val { font-size: 1.38rem; font-weight: bold; color: var(--g800); }
+        .m-card.hi .m-val { color: var(--g900); }
+
+        .ideal-block {
+            font-style: italic;
+            color: var(--ink2);
+            padding: 9px 13px;
+            border-left: 3px solid var(--g700);
+            margin: 10px 0;
+            background: var(--g50);
+            border-radius: 0 var(--r-sm) var(--r-sm) 0;
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+        .success-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            padding: 7px 14px;
+            background: var(--g100);
+            border: 1px solid var(--bdr2);
+            border-radius: var(--r-sm);
+            font-size: 0.83rem;
+            font-weight: bold;
+            color: var(--g900);
+        }
+        .error-box {
+            color: var(--err);
+            background: var(--err-bg);
+            border: 1px solid var(--err-bdr);
+            border-radius: var(--r-sm);
+            padding: 10px 14px;
+            font-size: 0.91rem;
+            line-height: 1.5;
+        }
+        .manual-wrap { margin: 8px 0 10px; }
+    </style>
+</head>
+<body>
+
+<!-- ══ TOP NAV ══════════════════════════════════════════════════════════ -->
+<nav class="topbar">
+    <div class="topbar-brand">
+        Persona Dialogue System <em>Conversational AI</em>
+    </div>
+    <div class="topbar-right">BART · RL Training</div>
+</nav>
+
+<div class="page">
+
+    <!-- ══ PAGE HEADING ══════════════════════════════════════════════════ -->
+    <div class="page-head">
+        <h1>Dialogue Generation</h1>
+        <p>Configure a persona, converse with the model, evaluate responses and apply reinforcement learning updates.</p>
+    </div>
+
+    <!-- ══ WORKFLOW STRIP ════════════════════════════════════════════════ -->
+    <div class="workflow">
+        <div class="wf-step active" id="step1"><span class="wf-dot">1</span> Persona Setup</div>
+        <div class="wf-step"        id="step2"><span class="wf-dot">2</span> Ask a Question</div>
+        <div class="wf-step"        id="step3"><span class="wf-dot">3</span> Model Response</div>
+        <div class="wf-step"        id="step4"><span class="wf-dot">4</span> Ideal Response</div>
+        <div class="wf-step"        id="step5"><span class="wf-dot">5</span> Evaluation &amp; RL</div>
+    </div>
+
+    <!-- ══ WORKSPACE ═════════════════════════════════════════════════════ -->
+    <div class="workspace">
+
+        <!-- Left — Persona Configuration -->
+        <div class="card">
+            <div class="card-head">
+                <h2>Persona Configuration</h2>
+                <span class="card-tag">STEP 1</span>
+            </div>
+            <div class="card-body">
+
+                <div class="field">
+                    <label class="lbl" for="persona-mode">Source</label>
+                    <select id="persona-mode" onchange="togglePersonaMode()">
+                        <option value="random">Load from dataset (random)</option>
+                        <option value="custom">Define a custom persona</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="lbl" for="persona-box">Persona</label>
+                    <textarea id="persona-box" readonly placeholder="Loading…">Loading…</textarea>
+                    <p class="field-note">Injected as context into every model response.</p>
+                </div>
+
+                <hr class="div">
+
+                <div class="btn-row" id="random-controls">
+                    <button class="btn btn-outline btn-sm" onclick="fetchPersona()">↻ Regenerate</button>
+                    <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                </div>
+                <div class="btn-row" id="custom-controls" style="display:none;">
+                    <button class="btn btn-primary btn-sm" onclick="applyCustomPersona()">Apply Persona</button>
+                    <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right — Conversation -->
+        <div class="card">
+            <div class="card-head">
+                <h2>Conversation</h2>
+                <span class="card-tag">STEP 2 – 5</span>
+            </div>
+            <div class="card-body">
+
+                <div class="chat-messages" id="chat-box">
+                    <div class="msg msg-bot">
+                        Ready. Enter a question about the active persona to begin.
+                    </div>
+                </div>
+
+                <div class="chat-input-bar">
+                    <input type="text" id="user-input"
+                        placeholder="Ask a question about the persona…"
+                        onkeydown="if(event.key==='Enter') sendMessage()">
+                    <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+
+            </div>
+        </div>
+
+    </div><!-- /workspace -->
+
+</div><!-- /page -->
+
+<script>
+/* ── State ── */
+let evalCounter = 0;
+let sending     = false;
+
+/* ── Init ── */
+window.onload = () => {
+    fetchPersona();
+    setStep(1);
+};
+
+/* ── Step tracker ── */
+function setStep(n) {
+    for (let i = 1; i <= 5; i++) {
+        const s = document.getElementById('step' + i);
+        if (!s) continue;
+        s.classList.remove('active', 'done');
+        if (i < n)        s.classList.add('done');
+        else if (i === n) s.classList.add('active');
+    }
+}
+
+/* ── Persona ── */
+async function fetchPersona() {
+    if (document.getElementById('persona-mode').value === 'custom') return;
+    const box = document.getElementById('persona-box');
+    box.value = 'Loading…';
+    try {
+        const data = await fetch('/get_persona').then(r => r.json());
+        box.value = data.persona || 'I am an AI assistant.';
+    } catch {
+        box.value = 'Could not load persona. Is the server running?';
+    }
+}
+
+function togglePersonaMode() {
+    const mode = document.getElementById('persona-mode').value;
+    const box  = document.getElementById('persona-box');
+    const rc   = document.getElementById('random-controls');
+    const cc   = document.getElementById('custom-controls');
+    if (mode === 'custom') {
+        box.readOnly    = false;
+        box.value       = '';
+        box.placeholder = 'e.g. I am a retired teacher who loves gardening and classical music…';
+        rc.style.display = 'none';
+        cc.style.display = 'flex';
+        box.focus();
+    } else {
+        box.readOnly     = true;
+        rc.style.display = 'flex';
+        cc.style.display = 'none';
+        fetchPersona();
+    }
+}
+
+function applyCustomPersona() {
+    const val = document.getElementById('persona-box').value.trim();
+    if (!val) { alert('Please enter a persona description.'); return; }
+    document.getElementById('persona-box').readOnly = true;
+    clearChat();
+    addMsg('Persona applied. You may now ask questions.', 'msg-bot');
+    setStep(2);
+}
+
+function resetChat() {
+    clearChat();
+    addMsg('Ready. Enter a question about the active persona to begin.', 'msg-bot');
+    document.getElementById('user-input').value = '';
+    if (document.getElementById('persona-mode').value === 'random') {
+        fetchPersona();
+    } else {
+        const box = document.getElementById('persona-box');
+        box.readOnly = false;
+        box.value    = '';
+    }
+    setStep(1);
+}
+
+function clearChat() { document.getElementById('chat-box').innerHTML = ''; }
+
+/* ── Send message ── */
+async function sendMessage() {
+    if (sending) return;
+    const input   = document.getElementById('user-input');
+    const btn     = document.getElementById('send-btn');
+    const text    = input.value.trim();
+    const persona = document.getElementById('persona-box').value.trim();
+    if (!text)    return;
+    if (!persona) { alert('Please configure a persona first.'); return; }
+
+    sending = true;
+    btn.disabled   = true;
+    input.disabled = true;
+
+    addMsg(text, 'msg-user');
+    input.value = '';
+    setStep(2);
+
+    const loadId = addLoading('Generating response…');
+
+    try {
+        const res  = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona, message: text })
+        });
+        const data = await res.json();
+        removeMsg(loadId);
+        const reply = data.response || 'No response returned.';
+        addMsg(reply, 'msg-bot');
+        setStep(3);
+        appendEvalCard(persona, text, reply);
+        setStep(4);
+    } catch {
+        removeMsg(loadId);
+        addMsg('Error: unable to reach the server.', 'msg-bot');
+    } finally {
+        sending        = false;
+        btn.disabled   = false;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+/* ── Eval card — manual input only ── */
+function appendEvalCard(persona, question, botResponse) {
+    const id  = 'eval-' + (++evalCounter);
+    const div = document.createElement('div');
+    div.className = 'eval-card';
+    div.id = id;
+    showManualInput(div, id, persona, question, botResponse);
+    document.getElementById('chat-box').appendChild(div);
+    scrollBottom();
+}
+
+function showManualInput(card, id, persona, question, botResponse) {
+    const iid = 'mi-' + id;
+    card.innerHTML = `
+        <div class="eval-note">Enter the ideal response to score the model and apply a reinforcement learning update.</div>
+        <div class="manual-wrap">
+            <input type="text" id="${iid}" placeholder="What should the model have said?…">
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" id="sub-${id}">Evaluate &amp; Update Model</button>
+        </div>`;
+    const inp = card.querySelector('#' + iid);
+    inp.focus();
+    inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') submitIdeal(card, id, iid, persona, question, botResponse);
+    });
+    card.querySelector('#sub-' + id).addEventListener('click',
+        () => submitIdeal(card, id, iid, persona, question, botResponse));
+}
+
+async function submitIdeal(card, id, iid, persona, question, botResponse) {
+    const ideal = document.getElementById(iid)?.value?.trim();
+    if (!ideal) { alert('Please enter an ideal response first.'); return; }
+    card.innerHTML = `
+        <div class="eval-loading">
+            <div class="spinner"></div>
+            <span>Computing scores and updating model…</span>
+        </div>`;
+    try {
+        const res = await fetch('/evaluate_and_update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona, question, bot_response: botResponse, ideal })
+        });
+        renderScores(card, await res.json());
+    } catch {
+        card.innerHTML = '<div class="error-box">Request failed. Please check the server connection.</div>';
+    }
+    scrollBottom();
+}
+
+function renderScores(card, m) {
+    if (m.error) { card.innerHTML = `<div class="error-box">${esc(m.error)}</div>`; return; }
+    setStep(5);
+    const badge = m.updated
+        ? '<div class="success-tag">✓ Model updated via reinforcement learning</div>' : '';
+    const msg   = (m.message && !m.updated)
+        ? `<p style="margin-top:8px;color:var(--muted);font-size:.85rem;font-style:italic">${esc(m.message)}</p>` : '';
+    card.innerHTML = `
+        <div class="eval-note">Ideal response used for scoring</div>
+        <div class="ideal-block">"${esc(m.ideal || '')}"</div>
+        <div class="metrics">
+            <div class="m-card"><div class="m-lbl">BLEU</div><div class="m-val">${m.bleu   ?? '—'}</div></div>
+            <div class="m-card"><div class="m-lbl">ROUGE-1</div><div class="m-val">${m.rouge1 ?? '—'}</div></div>
+            <div class="m-card"><div class="m-lbl">ROUGE-L</div><div class="m-val">${m.rougeL ?? '—'}</div></div>
+            <div class="m-card hi"><div class="m-lbl">Reward</div><div class="m-val">${m.reward ?? '—'}</div></div>
+        </div>${msg}${badge}`;
+}
+
+/* ── Helpers ── */
+function addMsg(text, cls) {
+    const d = document.createElement('div');
+    d.className   = 'msg ' + cls;
+    d.textContent = text;
+    document.getElementById('chat-box').appendChild(d);
+    scrollBottom();
+    return d;
+}
+
+function addLoading(label) {
+    const d = document.createElement('div');
+    d.className = 'msg msg-loading';
+    d.id        = 'ld-' + Date.now();
+    d.innerHTML = `<div class="spinner"></div><span class="loading-text">${label}</span>`;
+    document.getElementById('chat-box').appendChild(d);
+    scrollBottom();
+    return d.id;
+}
+
+function removeMsg(id) { const e = document.getElementById(id); if (e) e.remove(); }
+function scrollBottom() { const b = document.getElementById('chat-box'); if (b) b.scrollTop = b.scrollHeight; }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+</script>
+</body>
+</html>

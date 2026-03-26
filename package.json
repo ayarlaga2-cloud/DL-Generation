@@ -1,0 +1,10 @@
+{
+  "name": "dialogue-generation",
+  "version": "1.0.0",
+  "description": "Persona chatbot — run the Flask backend (Python required)",
+  "scripts": {
+    "dev": "python server.py",
+    "start": "python server.py",
+    "train": "python train_bart.py"
+  }
+}
