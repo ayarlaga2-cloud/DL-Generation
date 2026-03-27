@@ -233,26 +233,36 @@ def chat_multi():
             resp = resp[0].upper() + resp[1:]
         responses.append(resp)
 
-    # Compute pairwise cosine similarities
+    # Compute pairwise similarities to detect conflict
     try:
         if _IS_VERCEL:
-            emb_matrix = _hf_embed(responses)
+            # Use text similarity on Vercel — no API call needed
+            from difflib import SequenceMatcher
+            all_agree = True
+            n = len(responses)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    sim = SequenceMatcher(None, responses[i].lower(), responses[j].lower()).ratio()
+                    if sim <= 0.60:
+                        all_agree = False
+                        break
+                if not all_agree:
+                    break
         else:
             st_model = model_data.get("model")
             if st_model is None:
                 raise ValueError("No embedding model available")
             emb_matrix = st_model.encode(responses, convert_to_numpy=True)
-
-        all_agree = True
-        n = len(responses)
-        for i in range(n):
-            for j in range(i + 1, n):
-                sim = _cos_sim_np(emb_matrix[i], emb_matrix[j])
-                if sim <= 0.80:
-                    all_agree = False
+            all_agree = True
+            n = len(responses)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    sim = _cos_sim_np(emb_matrix[i], emb_matrix[j])
+                    if sim <= 0.80:
+                        all_agree = False
+                        break
+                if not all_agree:
                     break
-            if not all_agree:
-                break
     except Exception:
         all_agree = False
 
