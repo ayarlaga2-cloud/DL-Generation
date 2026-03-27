@@ -484,6 +484,8 @@ def load_model(pickle_path=PICKLE_PATH):
 
 
 def save_model(model_data, pickle_path=PICKLE_PATH):
+    if _IS_VERCEL:
+        return  # Vercel filesystem is read-only; nothing to persist between requests
     mlp          = model_data.get("mlp_model")
     numpy_weights = model_data.get("numpy_weights")
 
@@ -837,18 +839,9 @@ def generate_persona_response(model_data, persona, question, top_k=2, **kwargs):
     if memory:
         return _format_response(memory)
 
-    # Stage 1: Text generation
-    try:
-        if _IS_VERCEL:
-            prompt = (
-                f"Answer the following question in one complete, natural sentence "
-                f"based only on the person's profile below.\n\n"
-                f"Profile: {persona.strip()}\n\n"
-                f"Question: {norm_q}\n\n"
-                f"Answer:"
-            )
-            raw = _hf_generate(prompt)
-        else:
+    # Stage 1: Text generation (local only — flan-t5 via HF API hallucinates without auth)
+    if not _IS_VERCEL:
+        try:
             gen = model_data.get("gen_pipeline") or _get_gen_pipeline()
             prompt = (
                 f"Answer the following question in one complete, natural sentence "
@@ -860,22 +853,12 @@ def generate_persona_response(model_data, persona, question, top_k=2, **kwargs):
             out = gen(prompt, max_new_tokens=120, do_sample=False)
             raw = (out[0].get("generated_text") or "").strip()
 
-        word_count = len(raw.split()) if raw else 0
+            word_count = len(raw.split()) if raw else 0
 
-        if raw and word_count == 1:
-            persona_sent = _find_persona_sentence(raw, persona, model_data)
-            if persona_sent:
-                raw = persona_sent
-            else:
-                if _IS_VERCEL:
-                    expand_prompt = (
-                        f"Rewrite the following short answer as one complete, "
-                        f"natural sentence that answers the question.\n\n"
-                        f"Question: {norm_q}\n"
-                        f"Short answer: {raw}\n\n"
-                        f"Complete sentence:"
-                    )
-                    exp_raw = _hf_generate(expand_prompt)
+            if raw and word_count == 1:
+                persona_sent = _find_persona_sentence(raw, persona, model_data)
+                if persona_sent:
+                    raw = persona_sent
                 else:
                     expand_prompt = (
                         f"Rewrite the following short answer as one complete, "
@@ -886,21 +869,10 @@ def generate_persona_response(model_data, persona, question, top_k=2, **kwargs):
                     )
                     exp     = gen(expand_prompt, max_new_tokens=80, do_sample=False)
                     exp_raw = (exp[0].get("generated_text") or "").strip()
-                if exp_raw and len(exp_raw) > len(raw):
-                    raw = exp_raw
+                    if exp_raw and len(exp_raw) > len(raw):
+                        raw = exp_raw
 
-        elif raw and 2 <= word_count <= 5:
-            if _IS_VERCEL:
-                expand_prompt = (
-                    f"Rewrite the following short answer as one complete, natural "
-                    f"sentence that answers the question. Use the exact words from "
-                    f"the short answer - do not replace them with synonyms.\n\n"
-                    f"Question: {norm_q}\n"
-                    f"Short answer: {raw}\n\n"
-                    f"Complete sentence:"
-                )
-                expanded_raw = _hf_generate(expand_prompt)
-            else:
+            elif raw and 2 <= word_count <= 5:
                 expand_prompt = (
                     f"Rewrite the following short answer as one complete, natural "
                     f"sentence that answers the question. Use the exact words from "
@@ -911,13 +883,13 @@ def generate_persona_response(model_data, persona, question, top_k=2, **kwargs):
                 )
                 expanded     = gen(expand_prompt, max_new_tokens=80, do_sample=False)
                 expanded_raw = (expanded[0].get("generated_text") or "").strip()
-            if expanded_raw and len(expanded_raw) > len(raw):
-                raw = expanded_raw
+                if expanded_raw and len(expanded_raw) > len(raw):
+                    raw = expanded_raw
 
-        if raw and len(raw) > 1:
-            return _format_response(raw)
-    except Exception:
-        pass
+            if raw and len(raw) > 1:
+                return _format_response(raw)
+        except Exception:
+            pass
 
     # Stage 2: MLP / cosine retrieval (fallback)
     sentences, scores = _mlp_scores(model_data, persona, norm_q)
