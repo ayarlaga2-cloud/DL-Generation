@@ -935,6 +935,11 @@ def generate_persona_response(model_data, persona, question, top_k=2, **kwargs):
         return "I don't have information about that."
     k       = min(top_k, len(sentences))
     top_idx = sorted(np.argsort(scores)[-k:].tolist())
+    if _IS_VERCEL:
+        # Only include sentences that actually matched (score > 0)
+        top_idx = [i for i in top_idx if scores[i] > 0]
+        if not top_idx:
+            top_idx = [int(np.argmax(scores))]  # always return at least the best one
     parts   = [sentences[i].rstrip(".") for i in top_idx]
     return _format_response(". ".join(parts))
 
