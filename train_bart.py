@@ -674,30 +674,58 @@ def _find_persona_sentence(keyword: str, persona: str, model_data=None) -> str:
     sentences = _split_sentences(persona)
     if not sentences:
         return ""
-    try:
-        if _IS_VERCEL:
-            all_texts = [keyword] + sentences
-            embs      = _hf_embed(all_texts)
-            kw_n      = embs[0] / (np.linalg.norm(embs[0]) + 1e-9)
-            s_n       = embs[1:] / (np.linalg.norm(embs[1:], axis=1, keepdims=True) + 1e-9)
-            scores    = s_n @ kw_n
-        else:
-            em       = _get_st_model()
-            kw_emb   = em.encode(keyword,   convert_to_tensor=True)
-            sent_emb = em.encode(sentences, convert_to_tensor=True)
-            scores   = _st_util.cos_sim(kw_emb, sent_emb)[0].cpu().numpy()
+    kw_lower = keyword.lower().rstrip(".")
 
+    if _IS_VERCEL:
+        # Use keyword overlap — no API call needed
+        scores = _keyword_scores(keyword, sentences)
+        best_idx = int(np.argmax(scores)) if scores.max() > 0 else -1
+        if best_idx >= 0:
+            return sentences[best_idx]
+        # fallback: substring match
+        for sent in sentences:
+            if kw_lower in sent.lower():
+                return sent
+        return ""
+
+    try:
+        em       = _get_st_model()
+        kw_emb   = em.encode(keyword,   convert_to_tensor=True)
+        sent_emb = em.encode(sentences, convert_to_tensor=True)
+        scores   = _st_util.cos_sim(kw_emb, sent_emb)[0].cpu().numpy()
         best_idx = int(np.argmax(scores))
         if float(scores[best_idx]) > 0.30:
             return sentences[best_idx]
     except Exception:
         pass
 
-    kw_lower = keyword.lower().rstrip(".")
     for sent in sentences:
         if kw_lower in sent.lower():
             return sent
     return ""
+
+
+def _keyword_scores(question, sentences):
+    """Reliable keyword-overlap scoring — used on Vercel when embeddings fail."""
+    _stop = {
+        'what','is','are','my','your','the','a','an','do','does','i','you',
+        'me','we','he','she','it','to','of','and','or','in','on','at','be',
+        'was','were','have','has','had','that','this','for','with','about',
+        'tell','wt','did','can','could','would','will','not','no','so','if',
+        'but','by','from','when','where','why','how','who',
+    }
+    q_kw = {w for w in re.sub(r"[^a-z\s]", "", question.lower()).split()
+            if w not in _stop and len(w) > 2}
+    scores = []
+    for sent in sentences:
+        s_kw  = {w for w in re.sub(r"[^a-z\s]", "", sent.lower()).split()
+                 if w not in _stop and len(w) > 2}
+        overlap = len(q_kw & s_kw)
+        # bonus for partial word matches (e.g. "univ" matches "university")
+        partial = sum(1 for qw in q_kw for sw in s_kw
+                      if len(qw) > 3 and (qw in sw or sw in qw))
+        scores.append(overlap + partial * 0.5)
+    return np.array(scores, dtype=np.float32)
 
 
 def _mlp_scores(model_data, persona, question):
@@ -706,10 +734,8 @@ def _mlp_scores(model_data, persona, question):
         return sentences, np.array([])
 
     if _IS_VERCEL:
-        all_texts = [question] + sentences
-        all_embs  = _hf_embed(all_texts)
-        q_emb     = all_embs[0:1]
-        s_embs    = all_embs[1:]
+        # On Vercel: always use keyword scoring — no external API calls, fully reliable
+        return sentences, _keyword_scores(question, sentences)
     else:
         st     = model_data.get("model")
         q_emb  = st.encode(question,  convert_to_numpy=True).reshape(1, -1)
@@ -924,7 +950,7 @@ def compute_reward(bleu_score, rouge1, rougeL):
 def reinforcement_update(model_data, persona, question, generated_text,
                          ideal_text="", reward=0.0, **kwargs):
     if _IS_VERCEL:
-        q_emb = _hf_embed([question])[0]
+        q_emb = np.zeros(384, dtype=np.float32)   # not used for Vercel memory lookup
     else:
         st    = model_data.get("model")
         q_emb = st.encode(question, convert_to_numpy=True)
