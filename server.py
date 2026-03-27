@@ -1,6 +1,7 @@
 """
-Persona Dialogue System — localhost only.
-Run: python server.py  →  http://127.0.0.1:5000
+Persona Dialogue System — Flask API.
+Local: python server.py  ->  http://127.0.0.1:5000
+Vercel: deployed automatically via vercel.json
 """
 import os
 import sys
@@ -20,7 +21,8 @@ PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)
 
-from train_bart import load_model, generate_persona_response, reinforcement_update, compute_reward
+from train_bart import (load_model, generate_persona_response, reinforcement_update,
+                        compute_reward, _hf_embed, _IS_VERCEL, _cos_sim_np)
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -203,11 +205,77 @@ def evaluate_and_update():
     return jsonify(result)
 
 
-if __name__ == "__main__":
+
+
+@app.route("/chat_multi", methods=["POST"])
+def chat_multi():
+    data     = request.get_json() or {}
+    personas = data.get("personas", [])
+    question = (data.get("message") or "").strip()
+
+    if not question:
+        return jsonify({"error": "No message provided."})
+    if not personas:
+        return jsonify({"error": "No personas provided."})
+
+    # Generate a response for each persona
+    responses = []
+    for persona in personas:
+        persona = (persona or "").strip()
+        try:
+            resp = generate_persona_response(model_data, persona, question)
+            if _is_empty(resp):
+                resp = _extract_from_persona(persona, question)
+        except Exception as e:
+            resp = _extract_from_persona(persona, question) if persona else str(e)
+        resp = (resp or "I'm not sure.").strip()
+        if resp:
+            resp = resp[0].upper() + resp[1:]
+        responses.append(resp)
+
+    # Compute pairwise cosine similarities
     try:
-        from waitress import serve
-        print("Server ready:  http://127.0.0.1:5000")
-        serve(app, host="127.0.0.1", port=5000, threads=4)
-    except ImportError:
-        print("Localhost only: http://127.0.0.1:5000")
-        app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+        if _IS_VERCEL:
+            emb_matrix = _hf_embed(responses)
+        else:
+            st_model = model_data.get("model")
+            if st_model is None:
+                raise ValueError("No embedding model available")
+            emb_matrix = st_model.encode(responses, convert_to_numpy=True)
+
+        all_agree = True
+        n = len(responses)
+        for i in range(n):
+            for j in range(i + 1, n):
+                sim = _cos_sim_np(emb_matrix[i], emb_matrix[j])
+                if sim <= 0.80:
+                    all_agree = False
+                    break
+            if not all_agree:
+                break
+    except Exception:
+        all_agree = False
+
+    if all_agree:
+        # Return merged — use the first response as the canonical one
+        return jsonify({
+            "mode": "merged",
+            "response": responses[0],
+            "responses": responses,
+        })
+    else:
+        # Return split — each persona responds separately
+        split_responses = [
+            {"persona_idx": i + 1, "response": r}
+            for i, r in enumerate(responses)
+        ]
+        return jsonify({
+            "mode": "split",
+            "responses": split_responses,
+        })
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Server ready:  http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
