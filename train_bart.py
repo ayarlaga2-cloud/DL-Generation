@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import pickle
+from difflib import SequenceMatcher
 import random
 import requests
 import numpy as np
@@ -763,14 +764,25 @@ def _check_learned_memory(model_data, question: str, threshold: float = 0.82):
     if not pairs:
         return None
 
+    # On Vercel: use text similarity (no HF API needed — 100% reliable)
     if _IS_VERCEL:
-        q_emb = _hf_embed([question])[0]
-    else:
-        st    = model_data.get("model")
-        if st is None:
-            return None
-        q_emb = st.encode(question, convert_to_numpy=True)
+        norm_new   = _normalize_question(question).lower()
+        best_sim   = 0.70          # text-similarity threshold
+        best_ideal = None
+        for pair in pairs:
+            stored_norm = pair.get("norm_q") or pair.get("question", "")
+            stored_norm = stored_norm.lower()
+            sim = SequenceMatcher(None, norm_new, stored_norm).ratio()
+            if sim > best_sim and pair.get("ideal"):
+                best_sim   = sim
+                best_ideal = pair["ideal"]
+        return best_ideal if best_ideal else None
 
+    # Local: use sentence-transformer cosine similarity
+    st = model_data.get("model")
+    if st is None:
+        return None
+    q_emb  = st.encode(question, convert_to_numpy=True)
     q_norm = np.linalg.norm(q_emb)
     if q_norm < 1e-9:
         return None
@@ -919,6 +931,7 @@ def reinforcement_update(model_data, persona, question, generated_text,
 
     pair = {
         "question":  question,
+        "norm_q":    _normalize_question(question),
         "generated": generated_text,
         "ideal":     ideal_text,
         "reward":    reward,
