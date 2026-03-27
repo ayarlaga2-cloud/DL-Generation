@@ -490,6 +490,81 @@
             line-height: 1.5;
         }
         .manual-wrap { margin: 8px 0 10px; }
+
+        /* ═══════════════════════════════════════════════════════════
+           MODE TABS
+        ═══════════════════════════════════════════════════════════ */
+        .mode-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+        .mode-tab {
+            flex: 1; padding: 7px 4px; font-size: 0.76rem; font-weight: bold;
+            border: 1.5px solid var(--bdr); border-radius: var(--r-sm);
+            background: var(--white); color: var(--muted); cursor: pointer;
+            transition: all 0.15s; font-family: 'Times New Roman', Times, serif;
+        }
+        .mode-tab:hover { border-color: var(--bdr2); color: var(--g800); }
+        .mode-tab.active { background: var(--g800); color: #fff; border-color: var(--g800); }
+
+        /* ═══════════════════════════════════════════════════════════
+           MULTI-PERSONA ITEMS
+        ═══════════════════════════════════════════════════════════ */
+        .persona-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
+        .persona-item:last-of-type { border-bottom: none; margin-bottom: 0; }
+        .persona-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .persona-item-label { font-size: 0.78rem; font-weight: bold; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.07em; }
+        .persona-remove { background: none; border: none; color: var(--err); cursor: pointer; font-size: 1rem; padding: 0 4px; font-family: 'Times New Roman', Times, serif; }
+        .persona-remove:hover { opacity: 0.7; }
+        .persona-select-btn { margin-top: 6px; }
+        .persona-item.active-persona { background: var(--g50); border-radius: var(--r-sm); padding: 8px; }
+        .persona-item.active-persona .persona-item-label { color: var(--g700); }
+
+        .multi-status {
+            font-size: 0.82rem;
+            color: var(--g700);
+            font-style: italic;
+            margin: 10px 0 4px;
+            padding: 6px 10px;
+            background: var(--g50);
+            border: 1px solid var(--bdr);
+            border-radius: var(--r-sm);
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           REVERSE PERSONA PROGRESS
+        ═══════════════════════════════════════════════════════════ */
+        .rp-desc {
+            font-size: 0.86rem;
+            color: var(--muted);
+            font-style: italic;
+            margin-bottom: 12px;
+            line-height: 1.55;
+        }
+        .rp-progress { font-size: 0.84rem; color: var(--muted); margin: 10px 0 6px; }
+        .rp-progress-bar { height: 4px; background: var(--bdr); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+        .rp-progress-fill { height: 100%; background: var(--g700); border-radius: 99px; transition: width 0.4s ease; }
+
+        /* ═══════════════════════════════════════════════════════════
+           MULTI-PERSONA SPLIT RESPONSE
+        ═══════════════════════════════════════════════════════════ */
+        .msg-multi { padding: 0; background: none; border: none; flex-direction: column; gap: 6px; display: flex; align-self: flex-start; max-width: 85%; }
+        .persona-response-item { background: var(--g50); border: 1.5px solid var(--bdr); border-radius: var(--r-md); padding: 10px 13px; }
+        .persona-badge { display: inline-block; font-size: 0.68rem; font-weight: bold; letter-spacing: 0.1em; padding: 1px 7px; border-radius: 99px; margin-bottom: 5px; }
+        .persona-badge-1 { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+        .persona-badge-2 { background: #fce7f3; color: #9d174d; border: 1px solid #f9a8d4; }
+        .persona-badge-3 { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .persona-badge-4 { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+        .persona-badge-5 { background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+        .merged-note { font-size: 0.74rem; color: var(--g700); font-style: italic; margin-top: 4px; }
+
+        .rl-skip-note {
+            font-size: 0.80rem;
+            color: var(--muted);
+            font-style: italic;
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: var(--g50);
+            border-radius: var(--r-sm);
+            border: 1px solid var(--bdr);
+        }
     </style>
 </head>
 <body>
@@ -530,30 +605,60 @@
             </div>
             <div class="card-body">
 
-                <div class="field">
-                    <label class="lbl" for="persona-mode">Source</label>
-                    <select id="persona-mode" onchange="togglePersonaMode()">
-                        <option value="random">Load from dataset (random)</option>
-                        <option value="custom">Define a custom persona</option>
-                    </select>
+                <!-- Mode tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" id="tab-single"  onclick="switchMode('single')">Single</button>
+                    <button class="mode-tab"        id="tab-multi"   onclick="switchMode('multi')">Multi-Persona</button>
                 </div>
 
-                <div class="field">
-                    <label class="lbl" for="persona-box">Persona</label>
-                    <textarea id="persona-box" readonly placeholder="Loading…">Loading…</textarea>
-                    <p class="field-note">Injected as context into every model response.</p>
+                <!-- ══ SINGLE PERSONA PANEL ══════════════════════════════ -->
+                <div id="panel-single">
+                    <div class="field">
+                        <label class="lbl" for="persona-mode">Source</label>
+                        <select id="persona-mode" onchange="togglePersonaMode()">
+                            <option value="random">Load from dataset (random)</option>
+                            <option value="custom">Define a custom persona</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="lbl" for="persona-box">Persona</label>
+                        <textarea id="persona-box" readonly placeholder="Loading…">Loading…</textarea>
+                        <p class="field-note">Injected as context into every model response.</p>
+                    </div>
+
+                    <hr class="div">
+
+                    <div class="btn-row" id="random-controls">
+                        <button class="btn btn-outline btn-sm" onclick="fetchPersona()">↻ Regenerate</button>
+                        <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                    </div>
+                    <div class="btn-row" id="custom-controls" style="display:none;">
+                        <button class="btn btn-primary btn-sm" onclick="applyCustomPersona()">Apply Persona</button>
+                        <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                    </div>
                 </div>
 
-                <hr class="div">
+                <!-- ══ MULTI-PERSONA PANEL ════════════════════════════════ -->
+                <div id="panel-multi" style="display:none;">
 
-                <div class="btn-row" id="random-controls">
-                    <button class="btn btn-outline btn-sm" onclick="fetchPersona()">↻ Regenerate</button>
-                    <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                    <div id="multi-persona-list"></div>
+
+                    <div class="btn-row" style="margin-top:10px;">
+                        <button class="btn btn-outline btn-sm" id="btn-add-persona" onclick="addPersona()">+ Add Another Persona</button>
+                    </div>
+
+                    <hr class="div">
+
+                    <div class="btn-row">
+                        <button class="btn btn-primary btn-sm" onclick="applyAllPersonas()">Apply All Personas</button>
+                        <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
+                    </div>
+
+                    <div class="multi-status" id="multi-status">No persona selected. Click "Select This Persona" or "Apply All Personas".</div>
+
                 </div>
-                <div class="btn-row" id="custom-controls" style="display:none;">
-                    <button class="btn btn-primary btn-sm" onclick="applyCustomPersona()">Apply Persona</button>
-                    <button class="btn btn-subtle  btn-sm" onclick="resetChat()">Reset Session</button>
-                </div>
+
 
             </div>
         </div>
@@ -587,17 +692,32 @@
 </div><!-- /page -->
 
 <script>
-/* ── State ── */
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
 let evalCounter = 0;
 let sending     = false;
 
-/* ── Init ── */
+let appMode = 'single'; // 'single' | 'multi'
+
+let multiState = {
+    personaCount: 2,
+    selectedIdx: null,  // null=all active, 0-based index=specific
+    applyAll: false
+};
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
 window.onload = () => {
     fetchPersona();
     setStep(1);
+    initMultiPersonas();
 };
 
-/* ── Step tracker ── */
+/* ═══════════════════════════════════════════════════════════
+   STEP TRACKER
+═══════════════════════════════════════════════════════════ */
 function setStep(n) {
     for (let i = 1; i <= 5; i++) {
         const s = document.getElementById('step' + i);
@@ -608,7 +728,32 @@ function setStep(n) {
     }
 }
 
-/* ── Persona ── */
+/* ═══════════════════════════════════════════════════════════
+   MODE SWITCHING
+═══════════════════════════════════════════════════════════ */
+function switchMode(mode) {
+    appMode = mode;
+
+    // Update tabs
+    document.getElementById('tab-single').classList.toggle('active',  mode === 'single');
+    document.getElementById('tab-multi').classList.toggle('active',   mode === 'multi');
+
+    // Show/hide panels
+    document.getElementById('panel-single').style.display  = mode === 'single'  ? 'block' : 'none';
+    document.getElementById('panel-multi').style.display   = mode === 'multi'   ? 'block' : 'none';
+
+    // Reset chat input placeholder
+    const input = document.getElementById('user-input');
+    if (mode === 'multi') {
+        input.placeholder = 'Ask a question to the active persona(s)…';
+    } else {
+        input.placeholder = 'Ask a question about the persona…';
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SINGLE PERSONA
+═══════════════════════════════════════════════════════════ */
 async function fetchPersona() {
     if (document.getElementById('persona-mode').value === 'custom') return;
     const box = document.getElementById('persona-box');
@@ -654,34 +799,199 @@ function resetChat() {
     clearChat();
     addMsg('Ready. Enter a question about the active persona to begin.', 'msg-bot');
     document.getElementById('user-input').value = '';
-    if (document.getElementById('persona-mode').value === 'random') {
-        fetchPersona();
-    } else {
-        const box = document.getElementById('persona-box');
-        box.readOnly = false;
-        box.value    = '';
+
+    if (appMode === 'single') {
+        if (document.getElementById('persona-mode').value === 'random') {
+            fetchPersona();
+        } else {
+            const box = document.getElementById('persona-box');
+            box.readOnly = false;
+            box.value    = '';
+        }
     }
+
     setStep(1);
 }
 
 function clearChat() { document.getElementById('chat-box').innerHTML = ''; }
 
-/* ── Send message ── */
+/* ═══════════════════════════════════════════════════════════
+   MULTI-PERSONA
+═══════════════════════════════════════════════════════════ */
+function initMultiPersonas() {
+    multiState.personaCount = 2;
+    multiState.selectedIdx  = null;
+    multiState.applyAll     = false;
+    renderMultiPersonaList();
+}
+
+function renderMultiPersonaList() {
+    const container = document.getElementById('multi-persona-list');
+    container.innerHTML = '';
+
+    const currentValues = getMultiPersonas();
+
+    for (let i = 0; i < multiState.personaCount; i++) {
+        const item = document.createElement('div');
+        item.className = 'persona-item' + (multiState.selectedIdx === i ? ' active-persona' : '');
+        item.id = 'persona-item-' + i;
+
+        const savedVal = currentValues[i] || '';
+        const isActive = multiState.selectedIdx === i;
+
+        item.innerHTML = `
+            <div class="persona-item-head">
+                <span class="persona-item-label">${isActive ? '★ ' : ''}Persona ${i + 1}</span>
+                <button class="persona-remove" onclick="removePersona(${i})" title="Remove persona"
+                    ${multiState.personaCount <= 2 ? 'disabled style="opacity:0.3;cursor:not-allowed"' : ''}>
+                    × Remove
+                </button>
+            </div>
+            <textarea
+                id="multi-persona-box-${i}"
+                placeholder="Describe persona ${i + 1}…"
+                style="min-height:80px;"
+            >${esc(savedVal)}</textarea>
+            <div class="btn-row persona-select-btn">
+                <button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-sm"
+                    onclick="selectPersona(${i})">
+                    ${isActive ? '✓ Selected' : 'Select This Persona'}
+                </button>
+            </div>`;
+
+        container.appendChild(item);
+    }
+
+    // Update add button state
+    const addBtn = document.getElementById('btn-add-persona');
+    if (addBtn) {
+        addBtn.disabled = multiState.personaCount >= 5;
+    }
+}
+
+function getMultiPersonas() {
+    const vals = [];
+    for (let i = 0; i < multiState.personaCount; i++) {
+        const el = document.getElementById('multi-persona-box-' + i);
+        vals.push(el ? el.value.trim() : '');
+    }
+    return vals;
+}
+
+function addPersona() {
+    if (multiState.personaCount >= 5) return;
+    multiState.personaCount++;
+    renderMultiPersonaList();
+}
+
+function removePersona(idx) {
+    if (multiState.personaCount <= 2) return;
+
+    // Collect current values
+    const vals = getMultiPersonas();
+    vals.splice(idx, 1);
+
+    // Adjust selectedIdx
+    if (multiState.selectedIdx === idx) {
+        multiState.selectedIdx = null;
+        multiState.applyAll    = false;
+    } else if (multiState.selectedIdx !== null && multiState.selectedIdx > idx) {
+        multiState.selectedIdx--;
+    }
+
+    multiState.personaCount--;
+    renderMultiPersonaList();
+
+    // Restore values
+    for (let i = 0; i < multiState.personaCount; i++) {
+        const el = document.getElementById('multi-persona-box-' + i);
+        if (el) el.value = vals[i] || '';
+    }
+
+    updateMultiStatus();
+}
+
+function selectPersona(idx) {
+    multiState.selectedIdx = idx;
+    multiState.applyAll    = false;
+    renderMultiPersonaList();
+    updateMultiStatus();
+}
+
+function applyAllPersonas() {
+    multiState.applyAll    = true;
+    multiState.selectedIdx = null;
+    renderMultiPersonaList();
+    updateMultiStatus();
+}
+
+function updateMultiStatus() {
+    const el = document.getElementById('multi-status');
+    if (!el) return;
+    if (multiState.applyAll) {
+        el.textContent = 'All personas are active — responses will be compared.';
+    } else if (multiState.selectedIdx !== null) {
+        el.textContent = `Persona ${multiState.selectedIdx + 1} is active.`;
+    } else {
+        el.textContent = 'No persona selected. Click "Select This Persona" or "Apply All Personas".';
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SEND MESSAGE (unified handler)
+═══════════════════════════════════════════════════════════ */
 async function sendMessage() {
     if (sending) return;
-    const input   = document.getElementById('user-input');
-    const btn     = document.getElementById('send-btn');
-    const text    = input.value.trim();
-    const persona = document.getElementById('persona-box').value.trim();
-    if (!text)    return;
-    if (!persona) { alert('Please configure a persona first.'); return; }
+    const input = document.getElementById('user-input');
+    const btn   = document.getElementById('send-btn');
+    const text  = input.value.trim();
+    if (!text) return;
 
+    // ── MULTI MODE ────────────────────────────────────────────
+    if (appMode === 'multi') {
+        const personas = getMultiPersonas();
+
+        if (!multiState.applyAll && multiState.selectedIdx === null) {
+            addMsg('Please select a persona or click "Apply All Personas" first.', 'msg-bot');
+            return;
+        }
+
+        if (multiState.applyAll) {
+            // Check at least one persona is filled
+            const nonEmpty = personas.filter(p => p.length > 0);
+            if (nonEmpty.length === 0) {
+                alert('Please fill in at least one persona description.');
+                return;
+            }
+            await sendMultiPersonaMessage(text, personas, input, btn);
+            return;
+        }
+
+        // Single persona selected in multi mode
+        const persona = personas[multiState.selectedIdx] || '';
+        if (!persona) {
+            alert('Please fill in the selected persona description.');
+            return;
+        }
+
+        // Use normal single-persona chat
+        await sendSingleChat(text, persona, input, btn);
+        return;
+    }
+
+    // ── SINGLE MODE ───────────────────────────────────────────
+    const persona = document.getElementById('persona-box').value.trim();
+    if (!persona) { alert('Please configure a persona first.'); return; }
+    await sendSingleChat(text, persona, input, btn);
+}
+
+async function sendSingleChat(text, persona, input, btn) {
     sending = true;
-    btn.disabled   = true;
-    input.disabled = true;
+    if (btn) btn.disabled = true;
+    if (input) input.disabled = true;
 
     addMsg(text, 'msg-user');
-    input.value = '';
+    if (input) input.value = '';
     setStep(2);
 
     const loadId = addLoading('Generating response…');
@@ -703,14 +1013,78 @@ async function sendMessage() {
         removeMsg(loadId);
         addMsg('Error: unable to reach the server.', 'msg-bot');
     } finally {
-        sending        = false;
-        btn.disabled   = false;
-        input.disabled = false;
-        input.focus();
+        sending = false;
+        if (btn) btn.disabled = false;
+        if (input) { input.disabled = false; input.focus(); }
     }
 }
 
-/* ── Eval card — manual input only ── */
+async function sendMultiPersonaMessage(question, personas, input, btn) {
+    sending = true;
+    if (btn) btn.disabled = true;
+    if (input) input.disabled = true;
+
+    addMsg(question, 'msg-user');
+    if (input) input.value = '';
+    setStep(2);
+
+    const loadId = addLoading('Generating responses for all personas…');
+
+    try {
+        const res  = await fetch('/chat_multi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ personas, message: question })
+        });
+        const data = await res.json();
+        removeMsg(loadId);
+        setStep(3);
+        renderMultiResponse(data);
+        setStep(4);
+    } catch {
+        removeMsg(loadId);
+        addMsg('Error: unable to reach the server.', 'msg-bot');
+    } finally {
+        sending = false;
+        if (btn) btn.disabled = false;
+        if (input) { input.disabled = false; input.focus(); }
+    }
+}
+
+function renderMultiResponse(data) {
+    if (data.mode === 'merged') {
+        const msgEl = addMsg(data.response, 'msg-bot');
+        const note = document.createElement('div');
+        note.className = 'merged-note';
+        note.textContent = '(All personas agree)';
+        msgEl.appendChild(note);
+    } else {
+        const container = document.createElement('div');
+        container.className = 'msg msg-multi';
+        for (const r of data.responses) {
+            const item = document.createElement('div');
+            item.className = 'persona-response-item';
+            const badgeClass = 'persona-badge persona-badge-' + Math.min(r.persona_idx, 5);
+            item.innerHTML = `
+                <span class="${badgeClass}">P${r.persona_idx}</span>
+                <div>${esc(r.response)}</div>`;
+            container.appendChild(item);
+        }
+        document.getElementById('chat-box').appendChild(container);
+        scrollBottom();
+    }
+
+    // Show RL skip note instead of eval card when applyAll
+    const note = document.createElement('div');
+    note.className = 'rl-skip-note';
+    note.textContent = 'RL updates require a single persona — select a specific persona to enable evaluation.';
+    document.getElementById('chat-box').appendChild(note);
+    scrollBottom();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVAL CARD — manual input only
+═══════════════════════════════════════════════════════════ */
 function appendEvalCard(persona, question, botResponse) {
     const id  = 'eval-' + (++evalCounter);
     const div = document.createElement('div');
@@ -765,7 +1139,7 @@ function renderScores(card, m) {
     if (m.error) { card.innerHTML = `<div class="error-box">${esc(m.error)}</div>`; return; }
     setStep(5);
     const badge = m.updated
-        ? '<div class="success-tag">✓ Model updated via reinforcement learning</div>' : '';
+        ? '<div class="success-tag">&#x2713; Model updated via reinforcement learning</div>' : '';
     const msg   = (m.message && !m.updated)
         ? `<p style="margin-top:8px;color:var(--muted);font-size:.85rem;font-style:italic">${esc(m.message)}</p>` : '';
     card.innerHTML = `
@@ -779,7 +1153,9 @@ function renderScores(card, m) {
         </div>${msg}${badge}`;
 }
 
-/* ── Helpers ── */
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
 function addMsg(text, cls) {
     const d = document.createElement('div');
     d.className   = 'msg ' + cls;
