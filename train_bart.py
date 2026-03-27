@@ -131,7 +131,7 @@ QA_CONF_THRESH = 0.08
 
 INPUT_DIM  = 769
 HIDDEN1    = 256
-HIDDEN2    = 64
+HIDDEN2    = 64 
 NUM_LABELS = 2
 
 _st_model_instance     = None
