@@ -1,12 +1,9 @@
 pandas
+numpy
 scikit-learn
-sentence-transformers
-transformers
-torch
-sentencepiece
 pyspellchecker
 sacrebleu
 rouge-score
 flask
 flask-cors
-waitress
+requests
