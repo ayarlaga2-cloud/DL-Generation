@@ -7,3 +7,5 @@ rouge-score
 flask
 flask-cors
 requests
+python-dotenv
+google-genai
