@@ -507,15 +507,22 @@
         /* ═══════════════════════════════════════════════════════════
            MULTI-PERSONA ITEMS
         ═══════════════════════════════════════════════════════════ */
-        .persona-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); }
+        .persona-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--bdr); border-left: 3px solid transparent; padding-left: 8px; border-radius: var(--r-sm); transition: all 0.2s; }
         .persona-item:last-of-type { border-bottom: none; margin-bottom: 0; }
         .persona-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .persona-item-label { font-size: 0.78rem; font-weight: bold; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.07em; }
         .persona-remove { background: none; border: none; color: var(--err); cursor: pointer; font-size: 1rem; padding: 0 4px; font-family: 'Times New Roman', Times, serif; }
         .persona-remove:hover { opacity: 0.7; }
         .persona-select-btn { margin-top: 6px; }
-        .persona-item.active-persona { background: var(--g50); border-radius: var(--r-sm); padding: 8px; }
-        .persona-item.active-persona .persona-item-label { color: var(--g700); }
+        .persona-item.active-single { background: #f0faf4; border-left: 3px solid var(--g700); }
+        .persona-item.active-single .persona-item-label { color: var(--g700); }
+        .persona-item.active-single textarea { border-color: var(--g700) !important; }
+        .persona-item.active-all { background: #f0faf4; border-left: 3px solid #2d7a4f; }
+        .persona-item.active-all .persona-item-label { color: #2d7a4f; }
+        .persona-item.active-all textarea { border-color: #2d7a4f !important; }
+        .active-badge { display: inline-block; font-size: 0.65rem; font-weight: bold; padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: middle; }
+        .active-badge.badge-single { background: var(--g700); color: #fff; }
+        .active-badge.badge-all    { background: #2d7a4f; color: #fff; }
 
         .multi-status {
             font-size: 0.82rem;
@@ -565,6 +572,44 @@
             border-radius: var(--r-sm);
             border: 1px solid var(--bdr);
         }
+
+        /* ── ReAct Agent styles ──────────────────────────────── */
+        .agent-trace { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+        .agent-step {
+            display:flex; gap:10px; align-items:flex-start;
+            padding:9px 12px; border-radius:var(--r-sm);
+            font-size:0.82rem; line-height:1.5;
+            animation:fadeSlide 0.35s ease;
+        }
+        @keyframes fadeSlide {
+            from { opacity:0; transform:translateY(6px); }
+            to   { opacity:1; transform:translateY(0);   }
+        }
+        .step-think   { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; }
+        .step-act     { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; }
+        .step-observe { background:#f0fdf4; border:1px solid #bbf7d0; color:#14532d; }
+        .step-badge {
+            font-weight:700; font-size:0.68rem; letter-spacing:0.08em;
+            padding:2px 7px; border-radius:20px; white-space:nowrap; margin-top:1px;
+        }
+        .badge-think   { background:#dbeafe; color:#1d4ed8; }
+        .badge-act     { background:#ffedd5; color:#c2410c; }
+        .badge-observe { background:#dcfce7; color:#15803d; }
+        .agent-answer {
+            background:var(--g700); color:#fff; border-radius:var(--r-sm);
+            padding:12px 16px; font-size:0.90rem; font-weight:600;
+            line-height:1.5; margin-top:6px;
+        }
+        .agent-answer-label {
+            font-size:0.68rem; letter-spacing:0.10em; text-transform:uppercase;
+            opacity:0.75; margin-bottom:4px;
+        }
+        .agent-panel-box {
+            border:1.5px solid var(--bdr); border-radius:var(--r-sm);
+            padding:14px; background:var(--white);
+            max-height:480px; overflow-y:auto;
+        }
+        #agent-output { display:none; }
     </style>
 </head>
 <body>
@@ -609,6 +654,7 @@
                 <div class="mode-tabs">
                     <button class="mode-tab active" id="tab-single"  onclick="switchMode('single')">Single</button>
                     <button class="mode-tab"        id="tab-multi"   onclick="switchMode('multi')">Multi-Persona</button>
+                    <button class="mode-tab"        id="tab-agent"   onclick="switchMode('agent')">ReAct Agent</button>
                 </div>
 
                 <!-- ══ SINGLE PERSONA PANEL ══════════════════════════════ -->
@@ -659,6 +705,32 @@
 
                 </div>
 
+                <!-- ══ REACT AGENT PANEL ═══════════════════════════════ -->
+                <div id="panel-agent" style="display:none;">
+                    <div class="field">
+                        <label class="lbl">Source</label>
+                        <select id="agent-persona-mode" onchange="toggleAgentPersonaMode()">
+                            <option value="random">Load from dataset (random)</option>
+                            <option value="custom">Define a custom persona</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="lbl">Persona</label>
+                        <textarea id="agent-persona-box" readonly placeholder="Loading…" style="min-height:110px;">Loading…</textarea>
+                        <p class="field-note">The agent will reason step-by-step using only this persona.</p>
+                    </div>
+                    <hr class="div">
+                    <div class="btn-row" id="agent-random-controls">
+                        <button class="btn btn-outline btn-sm" onclick="fetchAgentPersona()">↻ Regenerate</button>
+                        <button class="btn btn-primary btn-sm" onclick="applyAgentPersona()">Apply Persona</button>
+                        <button class="btn btn-subtle  btn-sm" onclick="resetAgentSession()">Reset</button>
+                    </div>
+                    <div class="btn-row" id="agent-custom-controls" style="display:none;">
+                        <button class="btn btn-primary btn-sm" onclick="applyAgentPersona()">Apply Persona</button>
+                        <button class="btn btn-subtle  btn-sm" onclick="resetAgentSession()">Reset</button>
+                    </div>
+                    <div class="multi-status" id="agent-status">Load or enter a persona, then click Apply to begin.</div>
+                </div>
 
             </div>
         </div>
@@ -671,9 +743,27 @@
             </div>
             <div class="card-body">
 
+                <!-- Active persona preview bar -->
+                <div id="active-persona-preview" style="display:none; margin-bottom:10px; background:#f0faf4; border:1.5px solid var(--g700); border-radius:var(--r-sm); padding:9px 12px; font-size:0.82rem; color:var(--ink2);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-weight:bold; color:var(--g700); text-transform:uppercase; font-size:0.72rem; letter-spacing:0.06em;" id="active-persona-label">Active Persona</span>
+                        <button onclick="document.getElementById('active-persona-body').style.display = document.getElementById('active-persona-body').style.display==='none'?'block':'none'; this.textContent=this.textContent==='▲ Hide'?'▼ Show':'▲ Hide';" style="background:none;border:none;color:var(--g700);cursor:pointer;font-size:0.75rem;">▲ Hide</button>
+                    </div>
+                    <div id="active-persona-body" style="line-height:1.55; white-space:pre-wrap;"></div>
+                </div>
+
                 <div class="chat-messages" id="chat-box">
                     <div class="msg msg-bot">
                         Ready. Enter a question about the active persona to begin.
+                    </div>
+                </div>
+
+                <!-- ReAct Agent output (shown only in agent mode) -->
+                <div id="agent-output">
+                    <div id="agent-panel-box" class="agent-panel-box">
+                        <p style="color:var(--muted); font-size:0.83rem; font-style:italic;">
+                            Apply a persona on the left, then ask a question below to see the agent reason step by step.
+                        </p>
                     </div>
                 </div>
 
@@ -700,6 +790,59 @@ let sending     = false;
 
 let appMode = 'single'; // 'single' | 'multi'
 
+/* ═══════════════════════════════════════════════════════════
+   CHAT HISTORY  (localStorage — survives page refresh)
+═══════════════════════════════════════════════════════════ */
+let _chatLog = [];   // [{type:'user'|'bot', text:string}]
+
+function _saveHistory() {
+    try {
+        const persona = document.getElementById('persona-box')?.value || '';
+        localStorage.setItem('dg_log',     JSON.stringify(_chatLog));
+        localStorage.setItem('dg_persona', persona);
+    } catch(e) {}
+}
+
+function _clearHistory() {
+    _chatLog = [];
+    try {
+        localStorage.removeItem('dg_log');
+        localStorage.removeItem('dg_persona');
+    } catch(e) {}
+}
+
+function _loadHistory() {
+    try {
+        const raw     = localStorage.getItem('dg_log');
+        const persona = localStorage.getItem('dg_persona') || '';
+        if (!raw || !persona) return false;
+        const log = JSON.parse(raw);
+        if (!Array.isArray(log) || log.length === 0) return false;
+
+        // Restore persona box
+        const pBox = document.getElementById('persona-box');
+        if (pBox) pBox.value = persona;
+        const previewBody = document.getElementById('active-persona-body');
+        const previewWrap = document.getElementById('active-persona-preview');
+        if (previewBody) previewBody.textContent = persona;
+        if (previewWrap) previewWrap.style.display = 'block';
+
+        // Restore messages to chat box
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = '';
+        _chatLog = log;
+        for (const m of log) {
+            const d = document.createElement('div');
+            d.className   = 'msg ' + (m.type === 'user' ? 'msg-user' : 'msg-bot');
+            d.textContent = m.text;
+            chatBox.appendChild(d);
+        }
+        setStep(2);
+        scrollBottom();
+        return true;
+    } catch(e) { return false; }
+}
+
 let multiState = {
     personaCount: 2,
     selectedIdx: null,  // null=all active, 0-based index=specific
@@ -710,8 +853,8 @@ let multiState = {
    INIT
 ═══════════════════════════════════════════════════════════ */
 window.onload = () => {
-    fetchPersona();
-    setStep(1);
+    const restored = _loadHistory();
+    if (!restored) { fetchPersona(); setStep(1); }
     initMultiPersonas();
 };
 
@@ -735,20 +878,35 @@ function switchMode(mode) {
     appMode = mode;
 
     // Update tabs
-    document.getElementById('tab-single').classList.toggle('active',  mode === 'single');
-    document.getElementById('tab-multi').classList.toggle('active',   mode === 'multi');
+    document.getElementById('tab-single').classList.toggle('active', mode === 'single');
+    document.getElementById('tab-multi').classList.toggle('active',  mode === 'multi');
+    document.getElementById('tab-agent').classList.toggle('active',  mode === 'agent');
 
-    // Show/hide panels
-    document.getElementById('panel-single').style.display  = mode === 'single'  ? 'block' : 'none';
-    document.getElementById('panel-multi').style.display   = mode === 'multi'   ? 'block' : 'none';
+    // Show/hide left panels
+    document.getElementById('panel-single').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('panel-multi').style.display  = mode === 'multi'  ? 'block' : 'none';
+    document.getElementById('panel-agent').style.display  = mode === 'agent'  ? 'block' : 'none';
 
-    // Reset chat input placeholder
-    const input = document.getElementById('user-input');
-    if (mode === 'multi') {
-        input.placeholder = 'Ask a question to the active persona(s)…';
+    // Show/hide right panels
+    const chatBox     = document.getElementById('chat-box');
+    const agentOutput = document.getElementById('agent-output');
+    if (mode === 'agent') {
+        chatBox.style.display     = 'none';
+        agentOutput.style.display = 'block';
+        hidePersonaPreview();
+        // Auto-load a random persona when switching to agent tab for the first time
+        const agentBox = document.getElementById('agent-persona-box');
+        if (!agentBox.value || agentBox.value === 'Loading…') fetchAgentPersona();
     } else {
-        input.placeholder = 'Ask a question about the persona…';
+        chatBox.style.display     = 'block';
+        agentOutput.style.display = 'none';
     }
+
+    // Placeholder
+    const input = document.getElementById('user-input');
+    if (mode === 'multi')  input.placeholder = 'Ask a question to the active persona(s)…';
+    else if (mode === 'agent') input.placeholder = 'Ask the agent a question about the persona…';
+    else                   input.placeholder = 'Ask a question about the persona…';
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -760,9 +918,13 @@ async function fetchPersona() {
     box.value = 'Loading…';
     try {
         const data = await fetch('/get_persona').then(r => r.json());
-        box.value = data.persona || 'I am an AI assistant.';
+        const persona = data.persona || 'I am an AI assistant.';
+        box.value = persona;
+        // Also update the active persona preview bar on the right
+        showPersonaPreview('Active Persona', persona);
     } catch {
         box.value = 'Could not load persona. Is the server running?';
+        hidePersonaPreview();
     }
 }
 
@@ -790,19 +952,22 @@ function applyCustomPersona() {
     const val = document.getElementById('persona-box').value.trim();
     if (!val) { alert('Please enter a persona description.'); return; }
     document.getElementById('persona-box').readOnly = true;
+    showPersonaPreview('Active Persona', val);
     clearChat();
     addMsg('Persona applied. You may now ask questions.', 'msg-bot');
     setStep(2);
 }
 
 function resetChat() {
+    _clearHistory();          // wipe localStorage on explicit reset
+    hidePersonaPreview();     // clear the active persona preview bar
     clearChat();
     addMsg('Ready. Enter a question about the active persona to begin.', 'msg-bot');
     document.getElementById('user-input').value = '';
 
     if (appMode === 'single') {
         if (document.getElementById('persona-mode').value === 'random') {
-            fetchPersona();
+            fetchPersona();   // fetchPersona now auto-updates the preview bar too
         } else {
             const box = document.getElementById('persona-box');
             box.readOnly = false;
@@ -813,7 +978,10 @@ function resetChat() {
     setStep(1);
 }
 
-function clearChat() { document.getElementById('chat-box').innerHTML = ''; }
+function clearChat() {
+    document.getElementById('chat-box').innerHTML = '';
+    _chatLog = [];  // reset in-memory log (history only cleared from storage on explicit Reset)
+}
 
 /* ═══════════════════════════════════════════════════════════
    MULTI-PERSONA
@@ -827,21 +995,38 @@ function initMultiPersonas() {
 
 function renderMultiPersonaList() {
     const container = document.getElementById('multi-persona-list');
+    // Read values BEFORE clearing DOM — otherwise getMultiPersonas() returns empty strings
+    const currentValues = getMultiPersonas();
     container.innerHTML = '';
 
-    const currentValues = getMultiPersonas();
-
     for (let i = 0; i < multiState.personaCount; i++) {
+        const isSingleActive = !multiState.applyAll && multiState.selectedIdx === i;
+        const isAllActive    = multiState.applyAll;
+
+        const itemClass = isSingleActive ? 'persona-item active-single'
+                        : isAllActive    ? 'persona-item active-all'
+                        :                  'persona-item';
+
+        const badgeHtml = isSingleActive
+            ? '<span class="active-badge badge-single">ACTIVE</span>'
+            : isAllActive
+            ? '<span class="active-badge badge-all">ACTIVE</span>'
+            : '';
+
+        const btnClass = (isSingleActive || isAllActive) ? 'btn-primary' : 'btn-outline';
+        const btnLabel = isSingleActive ? '&#10003; Selected'
+                       : isAllActive    ? '&#10003; Active'
+                       :                  'Select This Persona';
+
         const item = document.createElement('div');
-        item.className = 'persona-item' + (multiState.selectedIdx === i ? ' active-persona' : '');
+        item.className = itemClass;
         item.id = 'persona-item-' + i;
 
         const savedVal = currentValues[i] || '';
-        const isActive = multiState.selectedIdx === i;
 
         item.innerHTML = `
             <div class="persona-item-head">
-                <span class="persona-item-label">${isActive ? '★ ' : ''}Persona ${i + 1}</span>
+                <span class="persona-item-label">Persona ${i + 1}${badgeHtml}</span>
                 <button class="persona-remove" onclick="removePersona(${i})" title="Remove persona"
                     ${multiState.personaCount <= 2 ? 'disabled style="opacity:0.3;cursor:not-allowed"' : ''}>
                     × Remove
@@ -853,20 +1038,16 @@ function renderMultiPersonaList() {
                 style="min-height:80px;"
             >${esc(savedVal)}</textarea>
             <div class="btn-row persona-select-btn">
-                <button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-sm"
-                    onclick="selectPersona(${i})">
-                    ${isActive ? '✓ Selected' : 'Select This Persona'}
+                <button class="btn ${btnClass} btn-sm" onclick="selectPersona(${i})">
+                    ${btnLabel}
                 </button>
             </div>`;
 
         container.appendChild(item);
     }
 
-    // Update add button state
     const addBtn = document.getElementById('btn-add-persona');
-    if (addBtn) {
-        addBtn.disabled = multiState.personaCount >= 5;
-    }
+    if (addBtn) addBtn.disabled = multiState.personaCount >= 5;
 }
 
 function getMultiPersonas() {
@@ -911,18 +1092,51 @@ function removePersona(idx) {
     updateMultiStatus();
 }
 
+function showPersonaPreview(label, text) {
+    const bar   = document.getElementById('active-persona-preview');
+    const lbl   = document.getElementById('active-persona-label');
+    const body  = document.getElementById('active-persona-body');
+    const tog   = bar.querySelector('button');
+    if (!bar) return;
+    lbl.textContent  = label;
+    body.textContent = text;
+    body.style.display = 'block';
+    tog.textContent    = '▲ Hide';
+    bar.style.display  = 'block';
+}
+
+function hidePersonaPreview() {
+    const bar = document.getElementById('active-persona-preview');
+    if (bar) bar.style.display = 'none';
+}
+
 function selectPersona(idx) {
+    const val = (document.getElementById('multi-persona-box-' + idx) || {}).value || '';
+    if (!val.trim()) { alert('Please enter a persona description first.'); return; }
     multiState.selectedIdx = idx;
     multiState.applyAll    = false;
     renderMultiPersonaList();
     updateMultiStatus();
+    showPersonaPreview('Active Persona — P' + (idx + 1), val.trim());
+    clearChat();
+    addMsg('Persona ' + (idx + 1) + ' selected. Ask a question to begin.', 'msg-bot');
+    document.getElementById('user-input').value = '';
+    setStep(2);
 }
 
 function applyAllPersonas() {
+    const vals = getMultiPersonas().filter(v => v.trim());
+    if (vals.length < 2) { alert('Please fill in at least 2 persona descriptions.'); return; }
     multiState.applyAll    = true;
     multiState.selectedIdx = null;
     renderMultiPersonaList();
     updateMultiStatus();
+    const preview = vals.map((v, i) => 'P' + (i + 1) + ': ' + v).join('\n\n');
+    showPersonaPreview('Active Personas — Conflict Detection Mode (' + vals.length + ')', preview);
+    clearChat();
+    addMsg('All personas active (' + vals.length + '). Responses will be compared for conflict or agreement.', 'msg-bot');
+    document.getElementById('user-input').value = '';
+    setStep(2);
 }
 
 function updateMultiStatus() {
@@ -931,7 +1145,7 @@ function updateMultiStatus() {
     if (multiState.applyAll) {
         el.textContent = 'All personas are active — responses will be compared.';
     } else if (multiState.selectedIdx !== null) {
-        el.textContent = `Persona ${multiState.selectedIdx + 1} is active.`;
+        el.textContent = 'Persona ' + (multiState.selectedIdx + 1) + ' is active. Chat reset for this persona.';
     } else {
         el.textContent = 'No persona selected. Click "Select This Persona" or "Apply All Personas".';
     }
@@ -946,6 +1160,19 @@ async function sendMessage() {
     const btn   = document.getElementById('send-btn');
     const text  = input.value.trim();
     if (!text) return;
+
+    // ── REACT AGENT MODE ──────────────────────────────────────
+    if (appMode === 'agent') {
+        if (!_agentReady) {
+            alert('Please apply a persona on the left first.');
+            return;
+        }
+        input.value = '';
+        btn.disabled = true;
+        await sendAgentMessage(text);
+        btn.disabled = false;
+        return;
+    }
 
     // ── MULTI MODE ────────────────────────────────────────────
     if (appMode === 'multi') {
@@ -1162,6 +1389,9 @@ function addMsg(text, cls) {
     d.textContent = text;
     document.getElementById('chat-box').appendChild(d);
     scrollBottom();
+    // Persist to history
+    _chatLog.push({ type: cls === 'msg-user' ? 'user' : 'bot', text });
+    _saveHistory();
     return d;
 }
 
@@ -1178,6 +1408,154 @@ function addLoading(label) {
 function removeMsg(id) { const e = document.getElementById(id); if (e) e.remove(); }
 function scrollBottom() { const b = document.getElementById('chat-box'); if (b) b.scrollTop = b.scrollHeight; }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ═══════════════════════════════════════════════════════════
+   REACT AGENT
+═══════════════════════════════════════════════════════════ */
+let _agentPersona  = '';
+let _agentReady    = false;
+
+async function fetchAgentPersona() {
+    if (document.getElementById('agent-persona-mode').value === 'custom') return;
+    const box = document.getElementById('agent-persona-box');
+    box.value = 'Loading…';
+    try {
+        const data = await fetch('/get_persona').then(r => r.json());
+        box.value = data.persona || 'I am an AI assistant.';
+    } catch {
+        box.value = 'Could not load persona. Is the server running?';
+    }
+}
+
+function toggleAgentPersonaMode() {
+    const mode = document.getElementById('agent-persona-mode').value;
+    const box  = document.getElementById('agent-persona-box');
+    const rc   = document.getElementById('agent-random-controls');
+    const cc   = document.getElementById('agent-custom-controls');
+    if (mode === 'custom') {
+        box.readOnly    = false;
+        box.value       = '';
+        box.placeholder = 'Describe the persona the agent will reason about…';
+        rc.style.display = 'none';
+        cc.style.display = 'flex';
+    } else {
+        box.readOnly = true;
+        rc.style.display = 'flex';
+        cc.style.display = 'none';
+        fetchAgentPersona();
+    }
+}
+
+function applyAgentPersona() {
+    const val = (document.getElementById('agent-persona-box').value || '').trim();
+    if (!val) { alert('Please enter a persona description first.'); return; }
+    _agentPersona = val;
+    _agentReady   = true;
+    document.getElementById('agent-status').textContent = 'Persona applied. Ask the agent a question below.';
+    document.getElementById('agent-status').style.color = 'var(--g700)';
+    // Show the persona in the preview bar
+    showPersonaPreview('Agent Persona', val);
+    // Reset output panel
+    document.getElementById('agent-panel-box').innerHTML =
+        '<p style="color:var(--muted);font-size:0.83rem;font-style:italic;">' +
+        'Persona loaded. Enter a question below and press Send to see the agent reason step by step.' +
+        '</p>';
+}
+
+function resetAgentSession() {
+    _agentPersona = '';
+    _agentReady   = false;
+    document.getElementById('agent-persona-box').value = '';
+    document.getElementById('agent-status').textContent = 'Enter a persona and click Apply to begin.';
+    document.getElementById('agent-status').style.color = '';
+    document.getElementById('agent-panel-box').innerHTML =
+        '<p style="color:var(--muted);font-size:0.83rem;font-style:italic;">' +
+        'Apply a persona on the left, then ask a question below to see the agent reason step by step.' +
+        '</p>';
+    hidePersonaPreview();
+    document.getElementById('user-input').value = '';
+}
+
+async function sendAgentMessage(question) {
+    const box = document.getElementById('agent-panel-box');
+
+    // Loading indicator
+    box.innerHTML =
+        '<div style="color:var(--muted);font-style:italic;font-size:0.83rem;">' +
+        'Agent is reasoning<span id="agent-dots"></span></div>';
+    let dotCount = 0;
+    const dotTimer = setInterval(() => {
+        const d = document.getElementById('agent-dots');
+        if (d) d.textContent = '.'.repeat((++dotCount % 3) + 1);
+    }, 400);
+
+    try {
+        const resp = await fetch('/react_agent', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ persona: _agentPersona, question }),
+        });
+        const data = await resp.json();
+        clearInterval(dotTimer);
+        if (data.error) {
+            box.innerHTML = '<p style="color:red;">Error: ' + esc(data.error) + '</p>';
+            return;
+        }
+        // Simple factual question → show direct answer without reasoning trace
+        if (data.mode === 'direct') {
+            box.innerHTML =
+                '<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">QUESTION</div>' +
+                '<div style="background:var(--g700);color:#fff;border-radius:var(--r-sm);padding:10px 14px;font-size:0.9rem;margin-bottom:14px;">' + esc(question) + '</div>' +
+                '<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;">DIRECT ANSWER</div>' +
+                '<div style="background:#f0faf4;border:1.5px solid var(--g700);border-radius:var(--r-sm);padding:12px 16px;font-size:0.9rem;color:var(--ink1);">' + esc(data.answer) + '</div>' +
+                '<div style="font-size:0.75rem;color:var(--muted);margin-top:8px;font-style:italic;">This question had a direct answer in the persona — no agent reasoning required.</div>';
+            return;
+        }
+        renderAgentTrace(box, question, data);
+    } catch (err) {
+        clearInterval(dotTimer);
+        box.innerHTML = '<p style="color:red;">Network error: ' + esc(String(err)) + '</p>';
+    }
+}
+
+function renderAgentTrace(box, question, data) {
+    const typeLabel = { THINK: 'THINK', ACT: 'ACT', OBSERVE: 'OBSERVE' };
+    const typeClass = { THINK: 'step-think', ACT: 'step-act', OBSERVE: 'step-observe' };
+    const badgeClass = { THINK: 'badge-think', ACT: 'badge-act', OBSERVE: 'badge-observe' };
+
+    let html = '';
+
+    // Question bubble
+    html += '<div style="margin-bottom:10px;">' +
+            '<span style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Question</span>' +
+            '<div style="background:var(--g700);color:#fff;border-radius:var(--r-sm);padding:8px 12px;margin-top:4px;font-size:0.86rem;font-weight:600;">' +
+            esc(question) + '</div></div>';
+
+    // Divider
+    html += '<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;">Agent Reasoning Trace</div>';
+
+    // Steps
+    html += '<div class="agent-trace">';
+    (data.steps || []).forEach(step => {
+        const tc  = typeClass[step.type]  || 'step-think';
+        const bc  = badgeClass[step.type] || 'badge-think';
+        const lbl = typeLabel[step.type]  || step.type;
+        html += '<div class="agent-step ' + tc + '">' +
+                '<span class="step-badge ' + bc + '">' + lbl + ' ' + step.step + '</span>' +
+                '<span>' + esc(step.content) + '</span>' +
+                '</div>';
+    });
+    html += '</div>';
+
+    // Final answer
+    html += '<div class="agent-answer">' +
+            '<div class="agent-answer-label">Final Answer</div>' +
+            esc(data.answer) +
+            '</div>';
+
+    box.innerHTML = html;
+    box.scrollTop = 0;
+}
 </script>
 </body>
 </html>
