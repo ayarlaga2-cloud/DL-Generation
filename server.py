@@ -1,8 +1,4 @@
-"""
-Persona Dialogue System — Flask API.
-Local: python server.py  ->  http://127.0.0.1:5000
-Vercel: deployed automatically via vercel.json
-"""
+    
 import os
 import sys
 import re
